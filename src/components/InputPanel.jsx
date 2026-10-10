@@ -236,7 +236,7 @@ export default function InputPanel({
                 onChange={(e) => setFormState({ ...formState, method: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-700/80 focus:border-cyan-500 rounded-xl px-3 py-2 text-xs text-slate-200 font-medium"
               >
-                <option value="auto">Automático (Decidido por IA según el eje y curvas)</option>
+                <option value="auto">Automático (Detectar método según geometría y eje)</option>
                 <option value="discos">Método de Discos (Secciones circulares macizas)</option>
                 <option value="arandelas">Método de Arandelas (Discos con perforación central)</option>
                 <option value="capas">Método de Capas Cilíndricas (Cascarones concéntricos)</option>
@@ -254,12 +254,12 @@ export default function InputPanel({
           {isLoading ? (
             <>
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Calculando y consultando a Gemini...</span>
+              <span>Calculando y generando gráficos...</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 text-cyan-200" />
-              <span>Calcular y Resolver con IA</span>
+              <Play className="w-4 h-4 text-cyan-200 fill-cyan-200" />
+              <span>Calcular y Graficar en 3D</span>
             </>
           )}
         </button>

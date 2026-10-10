@@ -17,7 +17,7 @@ export default function Navbar({ activeTab, setActiveTab, onOpenGuide, apiHealth
                   Cálculo<span className="text-cyan-400">App</span>
                 </span>
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 px-2 py-0.5 rounded-full">
-                  <Sparkles className="w-3 h-3 text-cyan-400" /> IA Gemini
+                  <Box className="w-3 h-3 text-cyan-400" /> Sólidos 3D
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
@@ -60,8 +60,8 @@ export default function Navbar({ activeTab, setActiveTab, onOpenGuide, apiHealth
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span className="hidden md:inline">Tutor IA</span>
+              <HelpCircle className="w-4 h-4 text-cyan-400" />
+              <span className="hidden md:inline">Asistente Didáctico</span>
             </button>
           </nav>
 

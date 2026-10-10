@@ -14,15 +14,9 @@ export default function StepByStepSolution({ explanation, numRef }) {
             <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
               Solución Pedagógica Paso a Paso
             </span>
-            {explanation.isAiGenerated ? (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-gradient-to-r from-purple-950 to-cyan-950 text-cyan-300 border border-cyan-700/60 px-2 py-0.5 rounded-full">
-                <Sparkles className="w-3 h-3 text-cyan-400" /> Generado por Gemini AI
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-full">
-                <Calculator className="w-3 h-3 text-cyan-400" /> Solución Analítica Estándar
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1 text-[11px] bg-cyan-950/80 text-cyan-300 border border-cyan-700/60 px-2 py-0.5 rounded-full">
+              <Calculator className="w-3 h-3 text-cyan-400" /> Solución Analítica Rigurosa
+            </span>
           </div>
           <h2 className="text-xl font-bold text-white mt-1">
             {explanation.methodTitle || 'Resolución del Ejercicio'}

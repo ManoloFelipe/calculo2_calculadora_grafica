@@ -10,9 +10,9 @@ import {
   generate3DRevolutionMesh
 } from './services/mathService.js';
 import {
-  explainWithGemini,
-  askTutorQuestion
-} from './services/geminiService.js';
+  generateDetailedResolution,
+  getContextualCalculusAdvice
+} from './services/resolutionService.js';
 import { REAL_WORLD_PRESETS } from './data/presets.js';
 
 dotenv.config();
@@ -36,7 +36,7 @@ apiRouter.get('/health', (req, res) => {
     status: 'ok',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    geminiConfigured: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'tu_api_key_aqui')
+    mode: 'deterministic-offline'
   });
 });
 
@@ -119,8 +119,8 @@ apiRouter.post('/calculate', async (req, res) => {
       });
     }
 
-    // 4. Resolución pedagógica explicativa con Gemini
-    const explanation = await explainWithGemini({
+    // 4. Resolución pedagógica explicativa analítica
+    const explanation = generateDetailedResolution({
       fStr,
       gStr,
       a: numA,
@@ -148,7 +148,7 @@ apiRouter.post('/calculate', async (req, res) => {
   }
 });
 
-// Endpoint para el Tutor IA
+// Endpoint para el Asistente de Cálculo
 apiRouter.post('/tutor', async (req, res) => {
   try {
     const { question, context = {} } = req.body;
@@ -159,7 +159,7 @@ apiRouter.post('/tutor', async (req, res) => {
       });
     }
 
-    const tutorResult = await askTutorQuestion({ question, context });
+    const tutorResult = getContextualCalculusAdvice({ question, context });
     res.json({
       success: true,
       ...tutorResult
@@ -168,7 +168,7 @@ apiRouter.post('/tutor', async (req, res) => {
     console.error('Error en /api/tutor:', error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Error al consultar al tutor virtual'
+      error: error.message || 'Error al consultar al asistente'
     });
   }
 });

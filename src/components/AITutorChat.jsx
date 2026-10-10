@@ -52,13 +52,13 @@ export default function AITutorChat({ currentContext, onSendMessage, messages, i
           </div>
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              Tutor Virtual de Cálculo II
+              Asistente Didáctico de Cálculo II
               <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full font-normal">
-                Gemini AI
+                Modo Autónomo
               </span>
             </h3>
             <p className="text-xs text-slate-400">
-              Pregunta cualquier duda sobre el procedimiento, fórmulas o cambios de eje.
+              Respuestas inmediatas sobre selección de métodos, cambios de eje y fundamentos de integración.
             </p>
           </div>
         </div>

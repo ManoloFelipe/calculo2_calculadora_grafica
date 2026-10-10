@@ -35,7 +35,7 @@ export default function App() {
   const [tutorMessages, setTutorMessages] = useState([
     {
       sender: 'ai',
-      text: '¡Hola! Soy tu Asistente Virtual de Cálculo II potenciado por Gemini AI. Puedes consultarme cualquier duda sobre el planteamiento de la integral, las condiciones de continuidad o cómo cambiar el eje de rotación.'
+      text: '¡Hola! Soy tu Asistente de Cálculo II. Puedes consultarme cualquier duda sobre el planteamiento de la integral, la justificación geométrica del método o cómo cambiar el eje de rotación.'
     }
   ]);
 
