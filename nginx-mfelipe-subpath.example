@@ -1,0 +1,42 @@
+# ==============================================================================
+# Instrucciones para añadir a tu archivo existente: /etc/nginx/sites-available/mfelipe
+# Dominio: https://mfelipe.tech
+# Subcarpeta: /calculo2/
+# ==============================================================================
+#
+# Abre tu archivo actual con:
+#   sudo nano /etc/nginx/sites-available/mfelipe
+#
+# Dentro del bloque "server { ... }" que atiende "server_name mfelipe.tech www.mfelipe.tech;"
+# (especialmente en el bloque HTTPS de puerto 443 con SSL si ya lo tienes configurado),
+# pega el siguiente bloque "location":
+
+    # --- INICIO: Calculo App (Sólidos de Revolución con IA) ---
+    location /calculo2 {
+        # Si cambiaste el puerto en .env (ej. 3005), cámbialo también aquí:
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        # Timeouts para dar margen a las deducciones pedagógicas de Gemini IA
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+    # --- FIN: Calculo App ---
+
+# ==============================================================================
+# Una vez pegado, guarda el archivo (Ctrl+O, Enter, Ctrl+X) y ejecuta en Ubuntu:
+#
+#   sudo nginx -t
+#   sudo systemctl reload nginx
+#
+# Tu aplicación quedará disponible inmediatamente en:
+#   👉 https://mfelipe.tech/calculo2
+# ==============================================================================
