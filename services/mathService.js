@@ -196,9 +196,9 @@ export function generate3DRevolutionMesh({
   axisType = 'horizontal', // 'horizontal' (y=c) | 'vertical' (x=k)
   axisVal = 0,
   maxAngleDeg = 360,
-  gridU = 35,
-  gridTheta = 40,
-  gridR = 15
+  gridU = 55,
+  gridTheta = 64,
+  gridR = 25
 }) {
   const fComp = compileExpression(fStr);
   const gComp = compileExpression(gStr || '0');
@@ -232,19 +232,23 @@ export function generate3DRevolutionMesh({
   if (isHorizontal) {
     // =========================================================================
     // CASO 1: GIRO ALREDEDOR DE EJE HORIZONTAL y = c (DISCOS Y ARANDELAS)
+    // Coordenadas: X = u (longitudinal), Y = c + r*cos(θ), Z = r*sin(θ) (sección circular)
     // =========================================================================
 
-    // Funciones de radio exterior e interior evaluadas
-    const R_out = uVals.map(u => {
-      const val = evaluateAt(fComp.compiled, u) ?? 0;
-      return Math.abs(val - axisVal);
-    });
+    const R_out = [];
+    const r_in = [];
 
-    const r_in = uVals.map(u => {
-      if (!hasG || !gComp.compiled) return 0;
-      const val = evaluateAt(gComp.compiled, u) ?? 0;
-      return Math.max(0, Math.min(Math.abs(val - axisVal), evaluateAt(fComp.compiled, u) ?? 0));
-    });
+    for (let i = 0; i <= gridU; i++) {
+      const u = uVals[i];
+      const valF = evaluateAt(fComp.compiled, u) ?? 0;
+      const valG = (hasG && gComp.compiled) ? (evaluateAt(gComp.compiled, u) ?? 0) : 0;
+
+      const dF = Math.abs(valF - axisVal);
+      const dG = hasG ? Math.abs(valG - axisVal) : (axisVal === 0 ? 0 : Math.abs(0 - axisVal));
+
+      R_out.push(Math.max(dF, dG));
+      r_in.push(hasG || axisVal !== 0 ? Math.min(dF, dG) : 0);
+    }
 
     // 1. Superficie Exterior (Manto exterior)
     const X_out = [];
@@ -268,8 +272,8 @@ export function generate3DRevolutionMesh({
     }
     outerSurface = { X: X_out, Y: Y_out, Z: Z_out };
 
-    // 2. Superficie Interior (si es arandela con hueco)
-    const hasInnerHole = hasG && r_in.some(r => r > 0.001);
+    // 2. Superficie Interior (Hueco central si r_in > 0.005)
+    const hasInnerHole = r_in.some(r => r > 0.005);
     if (hasInnerHole) {
       const X_in = [];
       const Y_in = [];
@@ -293,7 +297,7 @@ export function generate3DRevolutionMesh({
       innerSurface = { X: X_in, Y: Y_in, Z: Z_in };
     }
 
-    // 3. Tapa circular frontal en x = b
+    // 3. Tapa circular plana en x = b
     const R_b = R_out[gridU];
     const r_b = r_in[gridU];
     if (R_b - r_b > 0.001) {
@@ -318,7 +322,7 @@ export function generate3DRevolutionMesh({
       capB = { X: X_b, Y: Y_b, Z: Z_b };
     }
 
-    // 4. Tapa circular trasera en x = a
+    // 4. Tapa circular plana en x = a
     const R_a = R_out[0];
     const r_a = r_in[0];
     if (R_a - r_a > 0.001) {
@@ -343,13 +347,12 @@ export function generate3DRevolutionMesh({
       capA = { X: X_a, Y: Y_a, Z: Z_a };
     }
 
-    // 5. Caras planas de corte (cuando el ángulo es < 360°)
+    // 5. Caras de corte para rotación parcial (< 360°)
     if (isCut) {
-      // Corte a theta = 0
       const X_c0 = [];
       const Y_c0 = [];
       const Z_c0 = [];
-      // Corte a theta = thetaMax
+
       const X_c1 = [];
       const Y_c1 = [];
       const Z_c1 = [];
@@ -370,12 +373,12 @@ export function generate3DRevolutionMesh({
         for (let k = 0; k <= gridR; k++) {
           const r = rin + (k / gridR) * (Rout - rin);
 
-          // theta = 0
+          // θ = 0 (Plano X-Y)
           rowX0.push(u);
           rowY0.push(axisVal + r);
           rowZ0.push(0);
 
-          // theta = thetaMax
+          // θ = θ_max
           rowX1.push(u);
           rowY1.push(axisVal + r * Math.cos(thetaMaxRad));
           rowZ1.push(r * Math.sin(thetaMaxRad));
@@ -394,26 +397,26 @@ export function generate3DRevolutionMesh({
       cutEnd = { X: X_c1, Y: Y_c1, Z: Z_c1 };
     }
 
-    // 6. Elemento diferencial representativo (Disco dV interior resaltado)
+    // 6. Elemento diferencial dV (Disco / Arandela transversal)
     const midIdx = Math.floor(gridU * 0.55);
     const xMid = uVals[midIdx];
-    const dx = Math.abs(b - a) * 0.05;
+    const dx = Math.abs(b - a) * 0.04;
     const R_mid = R_out[midIdx];
     const r_mid = r_in[midIdx];
 
     const X_disc = [];
     const Y_disc = [];
     const Z_disc = [];
-    for (let i = 0; i <= 3; i++) {
-      const u = xMid + (i / 3) * dx;
+    for (let k = 0; k <= gridR; k++) {
+      const r = r_mid + (k / gridR) * (R_mid - r_mid);
       const rowX = [];
       const rowY = [];
       const rowZ = [];
       for (let j = 0; j <= gridTheta; j++) {
         const th = thetaVals[j];
-        rowX.push(u);
-        rowY.push(axisVal + R_mid * Math.cos(th));
-        rowZ.push(R_mid * Math.sin(th));
+        rowX.push(xMid);
+        rowY.push(axisVal + r * Math.cos(th));
+        rowZ.push(r * Math.sin(th));
       }
       X_disc.push(rowX);
       Y_disc.push(rowY);
@@ -424,33 +427,47 @@ export function generate3DRevolutionMesh({
       X: X_disc,
       Y: Y_disc,
       Z: Z_disc,
-      label: `Disco diferencial dV (x = ${xMid.toFixed(2)})`
+      label: hasInnerHole
+        ? `Arandela dV (x = ${xMid.toFixed(2)}, R = ${R_mid.toFixed(2)}, r = ${r_mid.toFixed(2)})`
+        : `Disco dV (x = ${xMid.toFixed(2)}, R = ${R_mid.toFixed(2)})`
     };
 
   } else {
     // =========================================================================
-    // CASO 2: GIRO ALREDEDOR DE EJE VERTICAL x = k (CAPAS CILÍNDRICAS)
+    // CASO 2: GIRO ALREDEDOR DE EJE VERTICAL x = k (CAPAS CILÍNDRICAS / CASCARONES)
+    // Coordenadas: Z = Altura vertical y, X = k + p*cos(θ), Y = p*sin(θ)
     // =========================================================================
 
-    const p_vals = uVals.map(u => Math.abs(u - axisVal));
-    const yTop_vals = uVals.map(u => evaluateAt(fComp.compiled, u) ?? 0);
-    const yBot_vals = uVals.map(u => (hasG && gComp.compiled ? evaluateAt(gComp.compiled, u) ?? 0 : 0));
+    const p_vals = [];
+    const yTop_vals = [];
+    const yBot_vals = [];
 
-    // 1. Superficie Superior (Techo generado por f(x))
+    for (let i = 0; i <= gridU; i++) {
+      const u = uVals[i];
+      const valF = evaluateAt(fComp.compiled, u) ?? 0;
+      const valG = (hasG && gComp.compiled) ? (evaluateAt(gComp.compiled, u) ?? 0) : 0;
+
+      // Ordenar dinámicamente techo y base para evitar inversiones
+      yTop_vals.push(Math.max(valF, valG));
+      yBot_vals.push(Math.min(valF, valG));
+      p_vals.push(Math.abs(u - axisVal));
+    }
+
+    // 1. Superficie Superior (Techo del sólido formado por max(f, g))
     const X_top = [];
     const Y_top = [];
     const Z_top = [];
     for (let i = 0; i <= gridU; i++) {
       const p = p_vals[i];
-      const y = yTop_vals[i];
+      const z = yTop_vals[i];
       const rowX = [];
       const rowY = [];
       const rowZ = [];
       for (let j = 0; j <= gridTheta; j++) {
         const th = thetaVals[j];
         rowX.push(axisVal + p * Math.cos(th));
-        rowY.push(y);
-        rowZ.push(p * Math.sin(th));
+        rowY.push(p * Math.sin(th));
+        rowZ.push(z);
       }
       X_top.push(rowX);
       Y_top.push(rowY);
@@ -458,21 +475,21 @@ export function generate3DRevolutionMesh({
     }
     outerSurface = { X: X_top, Y: Y_top, Z: Z_top };
 
-    // 2. Superficie Inferior (Base en y = g(x) o y = 0)
+    // 2. Superficie Inferior (Base del sólido formada por min(f, g))
     const X_bot = [];
     const Y_bot = [];
     const Z_bot = [];
     for (let i = 0; i <= gridU; i++) {
       const p = p_vals[i];
-      const y = yBot_vals[i];
+      const z = yBot_vals[i];
       const rowX = [];
       const rowY = [];
       const rowZ = [];
       for (let j = 0; j <= gridTheta; j++) {
         const th = thetaVals[j];
         rowX.push(axisVal + p * Math.cos(th));
-        rowY.push(y);
-        rowZ.push(p * Math.sin(th));
+        rowY.push(p * Math.sin(th));
+        rowZ.push(z);
       }
       X_bot.push(rowX);
       Y_bot.push(rowY);
@@ -480,59 +497,65 @@ export function generate3DRevolutionMesh({
     }
     capA = { X: X_bot, Y: Y_bot, Z: Z_bot }; // Base del sólido
 
-    // 3. Pared cilíndrica exterior en u = b
-    const p_b = p_vals[gridU];
-    const yT_b = yTop_vals[gridU];
-    const yB_b = yBot_vals[gridU];
-    if (Math.abs(yT_b - yB_b) > 0.001) {
+    // 3. Pared Cilíndrica Exterior (en el extremo con mayor radio)
+    const pA = p_vals[0];
+    const pB = p_vals[gridU];
+    const isBOuter = pB >= pA;
+
+    const p_outer = isBOuter ? pB : pA;
+    const yT_out = isBOuter ? yTop_vals[gridU] : yTop_vals[0];
+    const yB_out = isBOuter ? yBot_vals[gridU] : yBot_vals[0];
+
+    if (Math.abs(yT_out - yB_out) > 0.001) {
       const X_wall = [];
       const Y_wall = [];
       const Z_wall = [];
       for (let k = 0; k <= gridR; k++) {
-        const y = yB_b + (k / gridR) * (yT_b - yB_b);
+        const z = yB_out + (k / gridR) * (yT_out - yB_out);
         const rowX = [];
         const rowY = [];
         const rowZ = [];
         for (let j = 0; j <= gridTheta; j++) {
           const th = thetaVals[j];
-          rowX.push(axisVal + p_b * Math.cos(th));
-          rowY.push(y);
-          rowZ.push(p_b * Math.sin(th));
+          rowX.push(axisVal + p_outer * Math.cos(th));
+          rowY.push(p_outer * Math.sin(th));
+          rowZ.push(z);
         }
         X_wall.push(rowX);
         Y_wall.push(rowY);
         Z_wall.push(rowZ);
       }
-      capB = { X: X_wall, Y: Y_wall, Z: Z_wall }; // Pared exterior cilíndrica
+      capB = { X: X_wall, Y: Y_wall, Z: Z_wall }; // Manto cilíndrico exterior
     }
 
-    // 4. Pared cilíndrica interior en u = a (si no está pegada al eje)
-    const p_a = p_vals[0];
-    const yT_a = yTop_vals[0];
-    const yB_a = yBot_vals[0];
-    if (p_a > 0.001 && Math.abs(yT_a - yB_a) > 0.001) {
+    // 4. Pared Cilíndrica Interior (en el extremo con menor radio, si no toca el eje)
+    const p_inner = isBOuter ? pA : pB;
+    const yT_in = isBOuter ? yTop_vals[0] : yTop_vals[gridU];
+    const yB_in = isBOuter ? yBot_vals[0] : yBot_vals[gridU];
+
+    if (p_inner > 0.005 && Math.abs(yT_in - yB_in) > 0.001) {
       const X_inwall = [];
       const Y_inwall = [];
       const Z_inwall = [];
       for (let k = 0; k <= gridR; k++) {
-        const y = yB_a + (k / gridR) * (yT_a - yB_a);
+        const z = yB_in + (k / gridR) * (yT_in - yB_in);
         const rowX = [];
         const rowY = [];
         const rowZ = [];
         for (let j = 0; j <= gridTheta; j++) {
           const th = thetaVals[j];
-          rowX.push(axisVal + p_a * Math.cos(th));
-          rowY.push(y);
-          rowZ.push(p_a * Math.sin(th));
+          rowX.push(axisVal + p_inner * Math.cos(th));
+          rowY.push(p_inner * Math.sin(th));
+          rowZ.push(z);
         }
         X_inwall.push(rowX);
         Y_inwall.push(rowY);
         Z_inwall.push(rowZ);
       }
-      innerSurface = { X: X_inwall, Y: Y_inwall, Z: Z_inwall };
+      innerSurface = { X: X_inwall, Y: Y_inwall, Z: Z_inwall }; // Manto cilíndrico interior
     }
 
-    // 5. Caras de corte para ángulo < 360°
+    // 5. Caras de corte para ángulo parcial (< 360°)
     if (isCut) {
       const X_c0 = [];
       const Y_c0 = [];
@@ -556,17 +579,17 @@ export function generate3DRevolutionMesh({
         const rowZ1 = [];
 
         for (let k = 0; k <= gridR; k++) {
-          const y = yB + (k / gridR) * (yT - yB);
+          const z = yB + (k / gridR) * (yT - yB);
 
-          // theta = 0
+          // θ = 0 (Plano X-Z)
           rowX0.push(axisVal + p);
-          rowY0.push(y);
-          rowZ0.push(0);
+          rowY0.push(0);
+          rowZ0.push(z);
 
-          // theta = thetaMax
+          // θ = θ_max
           rowX1.push(axisVal + p * Math.cos(thetaMaxRad));
-          rowY1.push(y);
-          rowZ1.push(p * Math.sin(thetaMaxRad));
+          rowY1.push(p * Math.sin(thetaMaxRad));
+          rowZ1.push(z);
         }
 
         X_c0.push(rowX0);
@@ -581,9 +604,42 @@ export function generate3DRevolutionMesh({
       cutStart = { X: X_c0, Y: Y_c0, Z: Z_c0 };
       cutEnd = { X: X_c1, Y: Y_c1, Z: Z_c1 };
     }
+
+    // 6. Elemento diferencial dV (Cascarón Cilíndrico diferencial)
+    const midIdx = Math.floor(gridU * 0.55);
+    const p_mid = p_vals[midIdx];
+    const yB_mid = yBot_vals[midIdx];
+    const yT_mid = yTop_vals[midIdx];
+    const h_mid = Math.max(0.01, yT_mid - yB_mid);
+
+    const X_shell = [];
+    const Y_shell = [];
+    const Z_shell = [];
+    for (let k = 0; k <= gridR; k++) {
+      const z = yB_mid + (k / gridR) * h_mid;
+      const rowX = [];
+      const rowY = [];
+      const rowZ = [];
+      for (let j = 0; j <= gridTheta; j++) {
+        const th = thetaVals[j];
+        rowX.push(axisVal + p_mid * Math.cos(th));
+        rowY.push(p_mid * Math.sin(th));
+        rowZ.push(z);
+      }
+      X_shell.push(rowX);
+      Y_shell.push(rowY);
+      Z_shell.push(rowZ);
+    }
+    representativeElement = {
+      type: 'shell',
+      X: X_shell,
+      Y: Y_shell,
+      Z: Z_shell,
+      label: `Capa cilíndrica dV (p = ${p_mid.toFixed(2)}, h = ${h_mid.toFixed(2)})`
+    };
   }
 
-  // Línea del eje de revolución para renderizar en 3D
+  // Línea 3D del eje de revolución para renderizar
   const span = Math.abs(b - a) || 2;
   const axisLine3D = isHorizontal
     ? {
@@ -594,8 +650,11 @@ export function generate3DRevolutionMesh({
       }
     : {
         x: [axisVal, axisVal],
-        y: [-1, (evaluateAt(fComp.compiled, b) ?? 2) + 1],
-        z: [0, 0],
+        y: [0, 0],
+        z: [
+          Math.min(...(capA ? capA.Z.map(row => row[0]) : [-1])) - 0.5,
+          Math.max(...(outerSurface ? outerSurface.Z.map(row => row[0]) : [3])) + 0.5
+        ],
         label: axisVal === 0 ? 'Eje Y (x = 0)' : `Eje x = ${axisVal}`
       };
 
@@ -677,8 +736,10 @@ export function calculateNumericalReference({
       formulaType = 'arandelas';
       const intVal = numericalIntegrate(
         x => {
-          const R = Math.abs((evaluateAt(fComp.compiled, x) ?? 0) - axisVal);
-          const r = Math.abs((evaluateAt(gComp.compiled, x) ?? 0) - axisVal);
+          const d1 = Math.abs((evaluateAt(fComp.compiled, x) ?? 0) - axisVal);
+          const d2 = Math.abs((evaluateAt(gComp.compiled, x) ?? 0) - axisVal);
+          const R = Math.max(d1, d2);
+          const r = Math.min(d1, d2);
           return Math.max(0, R * R - r * r);
         },
         a,
@@ -688,14 +749,14 @@ export function calculateNumericalReference({
     }
   } else {
     // Giro alrededor de recta vertical x = k
-    // Capas cilíndricas: V = 2π ∫ |x - k| * (f(x) - g(x)) dx
+    // Capas cilíndricas: V = 2π ∫ |x - k| * |f(x) - g(x)| dx
     formulaType = 'capas';
     const intVal = numericalIntegrate(
       x => {
         const radius = Math.abs(x - axisVal);
         const yF = evaluateAt(fComp.compiled, x) ?? 0;
         const yG = hasG && gComp.compiled ? (evaluateAt(gComp.compiled, x) ?? 0) : 0;
-        const height = Math.max(0, yF - yG);
+        const height = Math.abs(yF - yG);
         return radius * height;
       },
       a,

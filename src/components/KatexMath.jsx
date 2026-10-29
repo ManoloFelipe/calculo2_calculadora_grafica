@@ -14,7 +14,8 @@ export default function KatexMath({ math, block = false, className = '' }) {
       }
       return katex.renderToString(clean, {
         displayMode: block,
-        throwOnError: false
+        throwOnError: false,
+        output: 'html'
       });
     } catch (e) {
       return `<code>${math}</code>`;

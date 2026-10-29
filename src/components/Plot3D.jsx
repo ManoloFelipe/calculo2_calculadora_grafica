@@ -19,6 +19,16 @@ export default function Plot3D({
     if (!containerRef.current || !meshData || !meshData.outer) return;
 
     const traces = [];
+    const isVertical = meshData.axisType === 'vertical';
+
+    // Configuración de iluminación para renderizado realista
+    const solidLighting = {
+      ambient: 0.82,
+      diffuse: 0.88,
+      specular: 0.45,
+      roughness: 0.35,
+      fresnel: 0.25
+    };
 
     // 1. Superficie Exterior Principal
     traces.push({
@@ -29,21 +39,16 @@ export default function Plot3D({
       colorscale: colorscale,
       opacity: opacity,
       showscale: false,
-      name: 'Superficie Exterior',
+      name: isVertical ? 'Superficie Superior' : 'Superficie Exterior',
       contours: {
-        x: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 },
-        y: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 },
-        z: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 }
+        x: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 },
+        y: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 },
+        z: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 }
       },
-      lighting: {
-        ambient: 0.75,
-        diffuse: 0.85,
-        specular: 0.35,
-        roughness: 0.45
-      }
+      lighting: solidLighting
     });
 
-    // 2. Superficie Interior (si es arandela con hueco)
+    // 2. Superficie Interior (Hueco / Núcleo interior si existe)
     if (meshData.inner && meshData.inner.X) {
       traces.push({
         type: 'surface',
@@ -51,20 +56,21 @@ export default function Plot3D({
         y: meshData.inner.Y,
         z: meshData.inner.Z,
         colorscale: 'Plasma',
-        opacity: Math.max(0.5, opacity * 0.85),
+        opacity: Math.max(0.6, opacity * 0.9),
         showscale: false,
-        name: 'Núcleo Interior (Hueco)',
+        name: isVertical ? 'Pared Cilíndrica Interior' : 'Núcleo Interior (Hueco)',
         contours: {
           x: { show: showWireframe, color: '#f43f5e', width: 1 },
           y: { show: showWireframe, color: '#f43f5e', width: 1 },
           z: { show: showWireframe, color: '#f43f5e', width: 1 }
-        }
+        },
+        lighting: solidLighting
       });
     }
 
     // 3. Tapas en los extremos para cerrar el sólido (capB y capA)
     if (showCaps) {
-      // Tapa frontal en x = b (o pared cilíndrica)
+      // Tapa en extremo exterior (pared cilíndrica exterior en verticales o tapa en x=b en horizontales)
       if (meshData.capB && meshData.capB.X) {
         traces.push({
           type: 'surface',
@@ -74,17 +80,17 @@ export default function Plot3D({
           colorscale: colorscale,
           opacity: opacity,
           showscale: false,
-          name: 'Tapa Extremo (x = b)',
+          name: isVertical ? 'Pared Cilíndrica Exterior' : 'Tapa Extremo (x = b)',
           contours: {
-            x: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 },
-            y: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 },
-            z: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 }
+            x: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 },
+            y: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 },
+            z: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 }
           },
-          lighting: { ambient: 0.8, diffuse: 0.8 }
+          lighting: solidLighting
         });
       }
 
-      // Tapa trasera en x = a (o base inferior)
+      // Tapa en extremo interior / base (superficie inferior en verticales o tapa en x=a en horizontales)
       if (meshData.capA && meshData.capA.X) {
         traces.push({
           type: 'surface',
@@ -94,13 +100,13 @@ export default function Plot3D({
           colorscale: colorscale,
           opacity: opacity,
           showscale: false,
-          name: 'Tapa Base (x = a)',
+          name: isVertical ? 'Superficie Inferior (Base)' : 'Tapa Base (x = a)',
           contours: {
-            x: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 },
-            y: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 },
-            z: { show: showWireframe, color: 'rgba(56, 189, 248, 0.4)', width: 1 }
+            x: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 },
+            y: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 },
+            z: { show: showWireframe, color: 'rgba(255, 255, 255, 0.25)', width: 1 }
           },
-          lighting: { ambient: 0.8, diffuse: 0.8 }
+          lighting: solidLighting
         });
       }
 
@@ -118,7 +124,8 @@ export default function Plot3D({
           contours: {
             x: { show: showWireframe, color: '#f59e0b', width: 1 },
             y: { show: showWireframe, color: '#f59e0b', width: 1 }
-          }
+          },
+          lighting: solidLighting
         });
       }
 
@@ -135,12 +142,13 @@ export default function Plot3D({
           contours: {
             x: { show: showWireframe, color: '#f59e0b', width: 1 },
             y: { show: showWireframe, color: '#f59e0b', width: 1 }
-          }
+          },
+          lighting: solidLighting
         });
       }
     }
 
-    // 4. Elemento diferencial representativo (Disco dV interior resaltado)
+    // 4. Elemento diferencial representativo (Disco dV o Capa dV)
     if (showDifferential && meshData.representativeElement && meshData.representativeElement.X) {
       traces.push({
         type: 'surface',
@@ -148,9 +156,9 @@ export default function Plot3D({
         y: meshData.representativeElement.Y,
         z: meshData.representativeElement.Z,
         colorscale: 'Hot',
-        opacity: 0.95,
+        opacity: 0.96,
         showscale: false,
-        name: meshData.representativeElement.label || 'Disco dV',
+        name: meshData.representativeElement.label || (isVertical ? 'Capa dV' : 'Disco dV'),
         contours: {
           x: { show: true, color: '#ffffff', width: 2 },
           y: { show: true, color: '#ffffff', width: 2 },
@@ -169,7 +177,7 @@ export default function Plot3D({
         z: meshData.axisLine3D.z,
         line: {
           color: '#ec4899',
-          width: 5,
+          width: 6,
           dash: 'dash'
         },
         name: `Eje: ${meshData.axisLine3D.label}`
@@ -183,30 +191,30 @@ export default function Plot3D({
       scene: {
         bgcolor: '#0f172a',
         xaxis: {
-          title: 'Eje X',
+          title: isVertical ? 'Eje X (Radio)' : 'Eje X (Eje de Giro)',
           backgroundcolor: '#090d16',
           gridcolor: '#1e293b',
           showbackground: true,
           zerolinecolor: '#38bdf8'
         },
         yaxis: {
-          title: 'Eje Y',
+          title: isVertical ? 'Eje Y (Radio)' : 'Eje Y (Radio vertical)',
           backgroundcolor: '#090d16',
           gridcolor: '#1e293b',
           showbackground: true,
           zerolinecolor: '#38bdf8'
         },
         zaxis: {
-          title: 'Eje Z',
+          title: isVertical ? 'Eje Z (Altura / Eje de Giro)' : 'Eje Z (Profundidad)',
           backgroundcolor: '#090d16',
           gridcolor: '#1e293b',
           showbackground: true,
           zerolinecolor: '#38bdf8'
         },
         camera: {
-          eye: { x: 1.6, y: -1.7, z: 1.3 }
+          eye: isVertical ? { x: 1.6, y: -1.7, z: 1.4 } : { x: 1.5, y: -1.8, z: 1.3 }
         },
-        aspectmode: 'cube'
+        aspectmode: 'data'
       },
       showlegend: true,
       legend: {
@@ -297,7 +305,9 @@ export default function Plot3D({
             title="Resaltar Elemento Diferencial dV (Disco/Capa interior)"
           >
             <Disc className="w-3 h-3" />
-            <span className="hidden sm:inline">Disco dV</span>
+            <span className="hidden sm:inline">
+              {meshData?.axisType === 'vertical' ? 'Capa dV' : 'Disco dV'}
+            </span>
           </button>
 
           {/* Toggle Wireframe */}

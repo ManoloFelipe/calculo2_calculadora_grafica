@@ -1,8 +1,9 @@
+import { compileExpression, evaluateAt } from './mathService.js';
+
 /**
  * Generador de resolución matemática analítica y pedagógica paso a paso
  * 100% determinístico y autónomo (sin requerir claves de API externas)
  */
-
 export function generateDetailedResolution({
   fStr,
   gStr = '0',
@@ -17,6 +18,13 @@ export function generateDetailedResolution({
   const isSolid = mode === 'solid';
   const hasG = gStr && gStr.trim() !== '' && gStr.trim() !== '0';
 
+  // Evaluación para ordenar rigurosamente las funciones en el intervalo [a, b]
+  const fComp = compileExpression(fStr);
+  const gComp = compileExpression(gStr || '0');
+  const midX = (a + b) / 2;
+  const fMid = evaluateAt(fComp.compiled, midX) ?? 0;
+  const gMid = (hasG && gComp.compiled) ? (evaluateAt(gComp.compiled, midX) ?? 0) : 0;
+
   let methodTitle = '';
   let methodJustification = '';
   let integralLatex = '';
@@ -27,46 +35,57 @@ export function generateDetailedResolution({
 
   if (!isSolid) {
     // Modo Área bajo la curva
+    const isFUpper = fMid >= gMid;
+    const topStr = isFUpper ? fStr : gStr;
+    const botStr = isFUpper ? (hasG ? gStr : '0') : fStr;
+
     methodTitle = hasG ? 'Área entre dos Curvas' : 'Área bajo la Curva f(x)';
     methodJustification = hasG
-      ? `Se calcula la región delimitada entre f(x) y g(x) en el intervalo [${a}, ${b}]. La altura del elemento diferencial vertical es |f(x) - g(x)|.`
+      ? `Se calcula la región delimitada entre f(x) y g(x) en el intervalo [${a}, ${b}]. La curva superior es y = ${topStr} y la inferior es y = ${botStr}.`
       : `Se calcula el área bajo la curva f(x) respecto al eje X en el intervalo [${a}, ${b}], donde dA = f(x) dx.`;
 
     integralLatex = hasG
-      ? `A = \\int_{${a}}^{${b}} \\left| (${fStr}) - (${gStr}) \\right| \\, dx`
+      ? `A = \\int_{${a}}^{${b}} \\left[ (${topStr}) - (${botStr}) \\right] \\, dx`
       : `A = \\int_{${a}}^{${b}} (${fStr}) \\, dx`;
 
     integrandExpl = hasG
-      ? `Elemento diferencial de área: dA = [f(x) - g(x)] dx = [(${fStr}) - (${gStr})] dx.`
-      : `Elemento diferencial de área: dA = f(x) dx = (${fStr}) dx.`;
+      ? `Elemento diferencial de área: dA = [y_{\\text{sup}} - y_{\\text{inf}}] \\, dx = [(${topStr}) - (${botStr})] \\, dx.`
+      : `Elemento diferencial de área: dA = f(x) \\, dx = (${fStr}) \\, dx.`;
 
-    antiderivativeLatex = `F(x) = \\int \\left( ${hasG ? `(${fStr}) - (${gStr})` : fStr} \\right) dx`;
+    antiderivativeLatex = `F(x) = \\int \\left( ${hasG ? `(${topStr}) - (${botStr})` : fStr} \\right) dx`;
     elementVolumeLatex = `dA = h(x) \\, dx`;
     realWorldInsight = 'El cálculo del área transversal es crucial en ingeniería civil y mecánica para determinar centroides, momentos de inercia y caudales de diseño en canales hidráulicos.';
   } else {
     // Sólidos de Revolución
     if (axisType === 'horizontal') {
       // Giro en torno a recta horizontal y = c
+      const axisText = axisVal === 0 ? 'Eje X (y = 0)' : `la recta horizontal y = ${axisVal}`;
+
       if (!hasG) {
         // Discos
-        const axisText = axisVal === 0 ? 'Eje X (y = 0)' : `la recta horizontal y = ${axisVal}`;
         methodTitle = `Método de Discos (Giro en torno a ${axisText})`;
-        methodJustification = `Se emplea el Método de Discos porque la región está delimitada por una sola función y el eje de rotación es paralelo al eje X, generando secciones transversales circulares sólidas (sin perforación).`;
+        methodJustification = `Se emplea el Método de Discos porque la región está delimitada por una sola función y el eje de rotación es paralelo al eje X, generando secciones circulares sólidas (sin perforación).`;
 
         const R_str = axisVal === 0 ? `(${fStr})` : `\\left| (${fStr}) - (${axisVal}) \\right|`;
         integralLatex = `V = \\pi \\int_{${a}}^{${b}} \\left[ ${R_str} \\right]^2 \\, dx`;
-        integrandExpl = `El radio del disco en cualquier posición x es R(x) = ${R_str}. El área de cada disco transversal es A(x) = \\pi [R(x)]^2.`;
+        integrandExpl = `Radio del disco en cualquier x: R(x) = ${R_str}. Área transversal: A(x) = \\pi [R(x)]^2.`;
         antiderivativeLatex = `F(x) = \\pi \\int \\left[ ${R_str} \\right]^2 dx`;
         elementVolumeLatex = `dV = \\pi [R(x)]^2 \\, dx`;
         realWorldInsight = 'Este método es el principio de torneado cilíndrico en manufactura CNC y diseño de botellas, cilindros y ejes mecánicos macizos.';
       } else {
-        // Arandelas
-        const axisText = axisVal === 0 ? 'Eje X (y = 0)' : `la recta horizontal y = ${axisVal}`;
-        methodTitle = `Método de Arandelas (Giro en torno a ${axisText})`;
-        methodJustification = `Se utiliza el Método de Arandelas porque la región está delimitada entre dos curvas f(x) y g(x). Al girar alrededor de ${axisText}, se crea una cavidad central formando discos huecos (arandelas).`;
+        // Arandelas: identificar qué curva es exterior (más alejada del eje)
+        const dF = Math.abs(fMid - axisVal);
+        const dG = Math.abs(gMid - axisVal);
+        const isFOuter = dF >= dG;
+        const outerStr = isFOuter ? fStr : gStr;
+        const innerStr = isFOuter ? gStr : fStr;
 
-        const R_str = axisVal === 0 ? `(${fStr})` : `\\left| (${fStr}) - (${axisVal}) \\right|`;
-        const r_str = axisVal === 0 ? `(${gStr})` : `\\left| (${gStr}) - (${axisVal}) \\right|`;
+        methodTitle = `Método de Arandelas (Giro en torno a ${axisText})`;
+        methodJustification = `Se utiliza el Método de Arandelas porque la región está delimitada entre dos curvas f(x) y g(x). Al girar alrededor de ${axisText}, se crea una cavidad central formando discos perforados (arandelas).`;
+
+        const R_str = axisVal === 0 ? `(${outerStr})` : `\\left| (${outerStr}) - (${axisVal}) \\right|`;
+        const r_str = axisVal === 0 ? `(${innerStr})` : `\\left| (${innerStr}) - (${axisVal}) \\right|`;
+
         integralLatex = `V = \\pi \\int_{${a}}^{${b}} \\left( \\left[ ${R_str} \\right]^2 - \\left[ ${r_str} \\right]^2 \\right) \\, dx`;
         integrandExpl = `Radio exterior: R(x) = ${R_str}. Radio interior: r(x) = ${r_str}. Área de la arandela: A(x) = \\pi (R^2 - r^2).`;
         antiderivativeLatex = `F(x) = \\pi \\int \\left( [R(x)]^2 - [r(x)]^2 \\right) dx`;
@@ -74,15 +93,20 @@ export function generateDetailedResolution({
         realWorldInsight = 'Esencial para calcular el volumen de material en tuberías, rodamientos, bujes mecánicos huecos y piezas de pared delgada.';
       }
     } else {
-      // Giro en torno a recta vertical x = k (Capas Cilíndricas)
+      // Giro en torno a recta vertical x = k (Capas Cilíndricas / Cascarones)
       const axisText = axisVal === 0 ? 'Eje Y (x = 0)' : `la recta vertical x = ${axisVal}`;
+      const isFUpper = fMid >= gMid;
+      const topStr = isFUpper ? fStr : gStr;
+      const botStr = isFUpper ? (hasG ? gStr : '0') : fStr;
+
       methodTitle = `Método de Capas Cilíndricas (Cascarones, Giro en torno a ${axisText})`;
-      methodJustification = `Se utiliza el Método de Capas Cilíndricas porque el elemento diferencial de área es paralelo al eje de rotación ${axisText}. Esto permite integrar directamente con respecto a x evitando despejar funciones inversas complejas.`;
+      methodJustification = `Se utiliza el Método de Capas Cilíndricas porque los elementos diferenciales verticales son paralelos al eje de rotación ${axisText}. Esto permite integrar directamente con respecto a x de forma directa.`;
 
       const p_str = axisVal === 0 ? `x` : `|x - (${axisVal})|`;
-      const h_str = hasG ? `\\left[ (${fStr}) - (${gStr}) \\right]` : `(${fStr})`;
+      const h_str = hasG ? `\\left[ (${topStr}) - (${botStr}) \\right]` : `(${fStr})`;
+
       integralLatex = `V = 2\\pi \\int_{${a}}^{${b}} (${p_str}) \\cdot ${h_str} \\, dx`;
-      integrandExpl = `Radio medio de la capa cilíndrica: p(x) = ${p_str}. Altura de la capa: h(x) = ${h_str}. Perímetro medio: 2\\pi p(x).`;
+      integrandExpl = `Radio medio de la capa: p(x) = ${p_str}. Altura de la capa: h(x) = y_{\\text{sup}} - y_{\\text{inf}} = ${h_str}. Perímetro: 2\\pi p(x).`;
       antiderivativeLatex = `F(x) = 2\\pi \\int p(x) \\cdot h(x) \\, dx`;
       elementVolumeLatex = `dV = 2\\pi \\, p(x) \\, h(x) \\, dx`;
       realWorldInsight = 'Ampliamente aplicado en el cálculo de almacenamiento de tanques de agua paraboloides, cúpulas arquitectónicas y vasijas de presión.';
@@ -113,7 +137,9 @@ export function generateDetailedResolution({
       stepNumber: 4,
       title: 'Aplicación del Teorema Fundamental del Cálculo (FTC)',
       description: `Se evalúa la función primitiva F(x) en los extremos del intervalo mediante la regla de Barrow: F(b) - F(a).`,
-      mathFormula: `\\left[ F(x) \\right]_{${a}}^{${b}} = F(${b}) - F(${a}) = ${numRef.formatted}`
+      mathFormula: isSolid
+        ? `\\left[ F(x) \\right]_{${a}}^{${b}} = F(${b}) - F(${a}) = ${numRef.piFactor}\\pi \\approx ${numRef.formatted} \\text{ u}^3`
+        : `\\left[ F(x) \\right]_{${a}}^{${b}} = F(${b}) - F(${a}) = ${numRef.formatted} \\text{ u}^2`
     },
     {
       stepNumber: 5,
@@ -134,7 +160,9 @@ export function generateDetailedResolution({
     methodJustification,
     integralLatex,
     antiderivativeLatex,
-    evaluationLatex: `F(${b}) - F(${a}) = ${numRef.formatted}`,
+    evaluationLatex: isSolid
+      ? `F(${b}) - F(${a}) = ${numRef.piFactor}\\pi \\approx ${numRef.formatted}`
+      : `F(${b}) - F(${a}) = ${numRef.formatted}`,
     exactResult: isSolid ? `${numRef.piFactor}\\pi \\text{ u}^3` : `${numRef.formatted} \\text{ u}^2`,
     decimalResult: `${numRef.formatted} ${numRef.units}`,
     steps,
