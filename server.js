@@ -200,6 +200,16 @@ app.get(['*', `${BASE_PATH}*`], (req, res, next) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Calculo App Server corriendo en http://localhost:${PORT}`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Error fatal: El puerto ${PORT} ya está siendo utilizado por otro proceso (posiblemente Next.js).`);
+    console.error(`👉 Cambia el puerto a 3005 en .env y en ecosystem.config.cjs.`);
+  } else {
+    console.error('Error al iniciar el servidor:', err);
+  }
+  process.exit(1);
 });

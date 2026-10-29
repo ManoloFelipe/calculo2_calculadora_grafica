@@ -13,8 +13,8 @@
 
     # --- INICIO: Calculo App (Sólidos de Revolución con IA) ---
     location /calculo2 {
-        # Si cambiaste el puerto en .env (ej. 3005), cámbialo también aquí:
-        proxy_pass http://127.0.0.1:3000;
+        # Puerto configurado para calculo-app:
+        proxy_pass http://127.0.0.1:3005;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

@@ -168,7 +168,7 @@ sudo nano /etc/nginx/sites-available/mfelipe
 ```nginx
     # Calculo App - Sólidos de Revolución con IA
     location /calculo2 {
-        proxy_pass http://127.0.0.1:3000; # O el puerto configurado en tu .env si el 3000 está ocupado
+        proxy_pass http://127.0.0.1:3005; # Puerto 3005 para no colisionar con Next.js (puerto 3000)
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

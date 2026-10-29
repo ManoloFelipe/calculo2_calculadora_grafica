@@ -17,12 +17,9 @@ npm run build
 echo "📁 [4/5] Creando directorio de logs..."
 mkdir -p logs
 
-echo "🔄 [5/5] Recargando proceso en PM2 sin tiempo de inactividad (Zero-downtime)..."
-if pm2 describe calculo-app > /dev/null 2>&1; then
-    pm2 reload ecosystem.config.cjs --env production
-else
-    pm2 start ecosystem.config.cjs --env production
-fi
+echo "🔄 [5/5] Iniciando proceso en PM2 (Modo Fork, Puerto 3005)..."
+pm2 delete calculo-app > /dev/null 2>&1 || true
+pm2 start ecosystem.config.cjs --env production
 
 pm2 save
 
