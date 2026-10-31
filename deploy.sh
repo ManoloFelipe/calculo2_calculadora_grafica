@@ -6,10 +6,11 @@
 set -e
 
 echo "🚀 [1/5] Actualizando repositorio desde Git..."
-git pull origin main || echo "Continuando con archivos locales..."
+git fetch origin main
+git reset --hard origin/main
 
 echo "📦 [2/5] Instalando dependencias de Node.js..."
-npm ci --prefer-offline --no-audit || npm install
+npm install --prefer-offline --no-audit
 
 echo "🔨 [3/5] Compilando aplicación Frontend (Vite)..."
 npm run build
@@ -17,9 +18,8 @@ npm run build
 echo "📁 [4/5] Creando directorio de logs..."
 mkdir -p logs
 
-echo "🔄 [5/5] Iniciando proceso en PM2 (Modo Fork, Puerto 3005)..."
-pm2 delete calculo-app > /dev/null 2>&1 || true
-pm2 start ecosystem.config.cjs --env production
+echo "🔄 [5/5] Reiniciando proceso en PM2..."
+pm2 restart calculo-app || pm2 start ecosystem.config.cjs --env production
 
 pm2 save
 

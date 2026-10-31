@@ -21,6 +21,9 @@ export function generateDetailedResolution({
   // Evaluación para ordenar rigurosamente las funciones en el intervalo [a, b]
   const fComp = compileExpression(fStr);
   const gComp = compileExpression(gStr || '0');
+  if (fComp.error) throw new Error(fComp.error);
+  if (hasG && gComp.error) throw new Error(gComp.error);
+
   const midX = (a + b) / 2;
   const fMid = evaluateAt(fComp.compiled, midX) ?? 0;
   const gMid = (hasG && gComp.compiled) ? (evaluateAt(gComp.compiled, midX) ?? 0) : 0;

@@ -7,6 +7,11 @@ import * as math from 'mathjs';
 export function normalizeExpression(exprStr) {
   if (!exprStr || typeof exprStr !== 'string') return '0';
   let clean = exprStr.trim();
+  if (clean === '') return '0';
+
+  // Convertir a minúsculas para estandarizar variables y funciones (X -> x, SQRT -> sqrt, etc.)
+  clean = clean.toLowerCase();
+
   // sen(x) -> sin(x)
   clean = clean.replace(/sen\s*\(/gi, 'sin(');
   // ln(x) -> log(x)
@@ -14,6 +19,11 @@ export function normalizeExpression(exprStr) {
   // e^x o e^(...) -> exp(x)
   clean = clean.replace(/\be\s*\^\s*([a-zA-Z0-9]+)/g, 'exp($1)');
   clean = clean.replace(/\be\s*\^\s*\(([^)]+)\)/g, 'exp($1)');
+
+  // Multiplicación implícita común: x( -> x*( y )x -> )*x
+  clean = clean.replace(/\bx\s*\(/g, 'x*(');
+  clean = clean.replace(/\)\s*x\b/g, ')*x');
+
   return clean;
 }
 
@@ -42,7 +52,14 @@ export function compileExpression(exprStr) {
  */
 export function evaluateAt(compiled, xVal) {
   try {
-    const res = compiled.evaluate({ x: xVal, pi: Math.PI, e: Math.E });
+    const res = compiled.evaluate({
+      x: xVal,
+      X: xVal,
+      pi: Math.PI,
+      PI: Math.PI,
+      e: Math.E,
+      E: Math.E
+    });
     if (typeof res === 'number' && !isNaN(res) && isFinite(res)) {
       return res;
     }
@@ -87,8 +104,10 @@ export function generate2DPlotData({
 }) {
   const fComp = compileExpression(fStr);
   const gComp = compileExpression(gStr || '0');
+  const hasG = gStr && gStr.trim() !== '' && gStr.trim() !== '0';
 
   if (fComp.error) throw new Error(fComp.error);
+  if (hasG && gComp.error) throw new Error(gComp.error);
 
   const numPointsInterval = 100;
   const span = Math.abs(b - a) || 1;
@@ -113,7 +132,6 @@ export function generate2DPlotData({
   // Curva extendida g(x) si existe
   const curveG_X = [];
   const curveG_Y = [];
-  const hasG = gStr && gStr.trim() !== '' && gStr.trim() !== '0';
   if (hasG && gComp.compiled) {
     for (let i = 0; i <= totalPoints; i++) {
       const x = xMin + i * stepExt;
@@ -202,9 +220,10 @@ export function generate3DRevolutionMesh({
 }) {
   const fComp = compileExpression(fStr);
   const gComp = compileExpression(gStr || '0');
-  if (fComp.error) throw new Error(fComp.error);
-
   const hasG = gStr && gStr.trim() !== '' && gStr.trim() !== '0';
+
+  if (fComp.error) throw new Error(fComp.error);
+  if (hasG && gComp.error) throw new Error(gComp.error);
   const thetaMaxRad = (Math.max(5, Math.min(360, maxAngleDeg)) * Math.PI) / 180;
   const isHorizontal = axisType === 'horizontal';
 
@@ -688,21 +707,25 @@ export function calculateNumericalReference({
 }) {
   const fComp = compileExpression(fStr);
   const gComp = compileExpression(gStr || '0');
-  if (fComp.error) throw new Error(fComp.error);
-
   const hasG = gStr && gStr.trim() !== '' && gStr.trim() !== '0';
+
+  if (fComp.error) throw new Error(fComp.error);
+  if (hasG && gComp.error) throw new Error(gComp.error);
+
+  const lowX = Math.min(a, b);
+  const highX = Math.max(a, b);
 
   if (mode === 'area') {
     // Área = ∫ [f(x) - g(x)] dx
-    const areaVal = numericalIntegrate(
+    const areaVal = Math.abs(numericalIntegrate(
       x => {
         const yF = evaluateAt(fComp.compiled, x) ?? 0;
         const yG = hasG && gComp.compiled ? (evaluateAt(gComp.compiled, x) ?? 0) : 0;
         return Math.abs(yF - yG);
       },
-      a,
-      b
-    );
+      lowX,
+      highX
+    ));
 
     return {
       type: 'area',
@@ -727,8 +750,8 @@ export function calculateNumericalReference({
           const R = (evaluateAt(fComp.compiled, x) ?? 0) - axisVal;
           return R * R;
         },
-        a,
-        b
+        lowX,
+        highX
       );
       volumeVal = Math.PI * intVal;
     } else {
@@ -742,8 +765,8 @@ export function calculateNumericalReference({
           const r = Math.min(d1, d2);
           return Math.max(0, R * R - r * r);
         },
-        a,
-        b
+        lowX,
+        highX
       );
       volumeVal = Math.PI * intVal;
     }
@@ -759,8 +782,8 @@ export function calculateNumericalReference({
         const height = Math.abs(yF - yG);
         return radius * height;
       },
-      a,
-      b
+      lowX,
+      highX
     );
     volumeVal = 2 * Math.PI * intVal;
   }
