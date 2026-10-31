@@ -199,5 +199,79 @@ if (expl6.steps.length === 7 && expl6.exactResult.includes('496\\pi')) {
   console.error('❌ Caso 6 falló validación de fracción exacta.');
 }
 
+
+// =========================================================================
+// PRUEBAS DEL CÁLCULO Y PROCEDIMIENTO DE ÁREA (2D y Región Generatriz)
+// =========================================================================
+console.log('\n--- PRUEBAS DE PROCEDIMIENTO DE ÁREA ---');
+
+// Verificación de Procedimiento de Área asociado al Sólido (Caso 1: sqrt(x) en [0, 4])
+// Teórico de Área: ∫_0^4 sqrt(x) dx = [ (2/3) x^(3/2) ]_0^4 = 16/3 ≈ 5.3333 u²
+if (expl1.areaProcedure) {
+  console.log('✅ Caso 1: Procedimiento de área adjunto a sólido generado con éxito:', {
+    methodTitle: expl1.areaProcedure.methodTitle,
+    exactResult: expl1.areaProcedure.exactResult,
+    decimalResult: expl1.areaProcedure.decimalResult,
+    stepsCount: expl1.areaProcedure.steps.length
+  });
+  if (expl1.areaProcedure.steps.length === 7 && expl1.areaProcedure.exactResult.includes('16') && expl1.areaProcedure.exactResult.includes('3')) {
+    console.log('✅ Caso 1 (Área Generatriz): 7 pasos analíticos y fracción exacta 16/3 u² superados.');
+  } else {
+    console.error('❌ Caso 1 (Área Generatriz) falló validación:', expl1.areaProcedure.exactResult);
+  }
+} else {
+  console.error('❌ Caso 1 no generó areaProcedure.');
+}
+
+// Verificación de Resolución Directa en Modo Área: f(x) = x^2 en [0, 3] -> 9.0 u²
+const areaExpl4 = generateDetailedResolution({
+  fStr: 'x^2',
+  gStr: '0',
+  a: 0,
+  b: 3,
+  mode: 'area',
+  numRef: res4
+});
+console.log('✅ Resolución Modo Área f(x)=x^2 [0, 3]:', {
+  methodTitle: areaExpl4.methodTitle,
+  exactResult: areaExpl4.exactResult,
+  decimalResult: areaExpl4.decimalResult,
+  stepsCount: areaExpl4.steps.length
+});
+if (areaExpl4.steps.length === 7 && areaExpl4.exactResult.includes('9') && areaExpl4.exactResult.includes('^2')) {
+  console.log('✅ Modo Área (1 curva): 7 pasos y resultado exacto 9 u² validados.');
+} else {
+  console.error('❌ Modo Área falló validación:', areaExpl4.exactResult);
+}
+
+// Verificación de Resolución Modo Área entre 2 curvas: f(x) = x, g(x) = x^2 en [0, 1]
+// Área: ∫_0^1 (x - x^2) dx = [x^2/2 - x^3/3]_0^1 = 1/2 - 1/3 = 1/6 ≈ 0.1667 u²
+const resArea2 = calculateNumericalReference({
+  fStr: 'x',
+  gStr: 'x^2',
+  a: 0,
+  b: 1,
+  mode: 'area'
+});
+const areaExpl2 = generateDetailedResolution({
+  fStr: 'x',
+  gStr: 'x^2',
+  a: 0,
+  b: 1,
+  mode: 'area',
+  numRef: resArea2
+});
+console.log('✅ Resolución Modo Área entre f(x)=x y g(x)=x^2 [0, 1]:', {
+  methodTitle: areaExpl2.methodTitle,
+  exactResult: areaExpl2.exactResult,
+  decimalResult: areaExpl2.decimalResult,
+  stepsCount: areaExpl2.steps.length
+});
+if (areaExpl2.steps.length === 7 && areaExpl2.exactResult.includes('1') && areaExpl2.exactResult.includes('6')) {
+  console.log('✅ Modo Área (2 curvas): 7 pasos y fracción exacta 1/6 u² validados.');
+} else {
+  console.error('❌ Modo Área entre 2 curvas falló:', areaExpl2.exactResult);
+}
+
 console.log('--- TODAS LAS PRUEBAS MATEMÁTICAS COMPLETADAS EXITOSAMENTE ---');
 

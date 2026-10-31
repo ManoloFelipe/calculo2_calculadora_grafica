@@ -115,8 +115,10 @@ function getTermsFromAST(node) {
     return [{ coeff: node.value, power: 0 }];
   }
 
-  if (node.isSymbolNode && node.name === 'x') {
-    return [{ coeff: 1, power: 1 }];
+  if (node.isSymbolNode) {
+    if (node.name === 'x') return [{ coeff: 1, power: 1 }];
+    if (node.name === 'x_half') return [{ coeff: 1, power: 0.5 }];
+    if (node.name === 'x_three_half') return [{ coeff: 1, power: 1.5 }];
   }
 
   if (node.isOperatorNode && node.op === '^') {
@@ -128,17 +130,21 @@ function getTermsFromAST(node) {
   if (node.isOperatorNode && node.op === '*') {
     const a0 = node.args[0];
     const a1 = node.args[1];
-    if (a0.isConstantNode && a1.isSymbolNode && a1.name === 'x') {
-      return [{ coeff: a0.value, power: 1 }];
+    if (a0.isConstantNode) {
+      if (a1.isSymbolNode && a1.name === 'x') return [{ coeff: a0.value, power: 1 }];
+      if (a1.isSymbolNode && a1.name === 'x_half') return [{ coeff: a0.value, power: 0.5 }];
+      if (a1.isSymbolNode && a1.name === 'x_three_half') return [{ coeff: a0.value, power: 1.5 }];
+      if (a1.isOperatorNode && a1.op === '^' && a1.args[0].name === 'x') {
+        return [{ coeff: a0.value, power: a1.args[1].value }];
+      }
     }
-    if (a0.isConstantNode && a1.isOperatorNode && a1.op === '^' && a1.args[0].name === 'x') {
-      return [{ coeff: a0.value, power: a1.args[1].value }];
-    }
-    if (a1.isConstantNode && a0.isSymbolNode && a0.name === 'x') {
-      return [{ coeff: a1.value, power: 1 }];
-    }
-    if (a1.isConstantNode && a0.isOperatorNode && a0.op === '^' && a0.args[0].name === 'x') {
-      return [{ coeff: a1.value, power: a0.args[1].value }];
+    if (a1.isConstantNode) {
+      if (a0.isSymbolNode && a0.name === 'x') return [{ coeff: a1.value, power: 1 }];
+      if (a0.isSymbolNode && a0.name === 'x_half') return [{ coeff: a1.value, power: 0.5 }];
+      if (a0.isSymbolNode && a0.name === 'x_three_half') return [{ coeff: a1.value, power: 1.5 }];
+      if (a0.isOperatorNode && a0.op === '^' && a0.args[0].name === 'x') {
+        return [{ coeff: a1.value, power: a0.args[1].value }];
+      }
     }
   }
 
@@ -150,20 +156,14 @@ function getTermsFromAST(node) {
  */
 function analyzeIntegrandTerms(exprStr) {
   try {
-    let s = exprStr.replace(/sqrt\s*\(\s*x\s*\)/g, 'x^(1/2)');
-    s = s.replace(/\(?\s*x\^\(1\/2\)\s*\)?\s*\^\s*2/g, 'x');
-    s = s.replace(/x\s*\*\s*x\^\(1\/2\)/g, 'x^(3/2)');
-
-    // Analizador especial para x^2 + x - x^(3/2)
-    if (s.includes('x^(3/2)')) {
-      if (s === 'x^2 + x - x^(3/2)' || s === 'x ^ 2 + x - x ^ (3/2)') {
-        return [
-          { coeff: 1, power: 2 },
-          { coeff: 1, power: 1 },
-          { coeff: -1, power: 1.5 }
-        ];
-      }
-    }
+    let s = exprStr.trim();
+    // Reemplazar (sqrt(x))^2 por x
+    s = s.replace(/(\(?\s*sqrt\s*\(\s*x\s*\)\s*\)?)\s*\^\s*2/g, 'x');
+    // Reemplazar x * sqrt(x) por x_three_half
+    s = s.replace(/x\s*\*\s*sqrt\s*\(\s*x\s*\)/g, 'x_three_half');
+    s = s.replace(/sqrt\s*\(\s*x\s*\)\s*\*\s*x/g, 'x_three_half');
+    // Reemplazar sqrt(x) por x_half
+    s = s.replace(/sqrt\s*\(\s*x\s*\)/g, 'x_half');
 
     const rational = math.rationalize(s);
     const rawTerms = getTermsFromAST(rational);
@@ -283,6 +283,155 @@ function evalAntiderivativeAt(terms, x) {
 }
 
 /**
+ * Generador de resolución detallada analítica y paso a paso para el ÁREA de una región plana
+ */
+export function generateAreaProcedure({
+  fStr,
+  gStr = '0',
+  a,
+  b,
+  numRef = null
+}) {
+  const hasG = gStr && gStr.trim() !== '' && gStr.trim() !== '0';
+  const lowX = Math.min(a, b);
+  const highX = Math.max(a, b);
+
+  const fComp = compileExpression(fStr);
+  const gComp = compileExpression(gStr || '0');
+  if (fComp.error) throw new Error(fComp.error);
+  if (hasG && gComp.error) throw new Error(gComp.error);
+
+  const midX = (lowX + highX) / 2;
+  const fMid = evaluateAt(fComp.compiled, midX) ?? 0;
+  const gMid = (hasG && gComp.compiled) ? (evaluateAt(gComp.compiled, midX) ?? 0) : 0;
+
+  const fLatex = exprToLatex(fStr);
+  const gLatex = hasG ? exprToLatex(gStr) : '0';
+
+  const isFUpper = fMid >= gMid;
+  const topLatex = isFUpper ? fLatex : gLatex;
+  const botLatex = isFUpper ? (hasG ? gLatex : '0') : fLatex;
+  const topStr = isFUpper ? fStr : gStr;
+  const botStr = isFUpper ? (hasG ? gStr : '0') : fStr;
+
+  const methodTitle = hasG ? 'Área entre dos Curvas' : 'Área bajo la Curva f(x)';
+  const methodJustification = hasG
+    ? `Se calcula el área de la región plana comprendida entre la curva superior $y_{\\text{sup}} = ${topLatex}$ y la curva inferior $y_{\\text{inf}} = ${botLatex}$ en el intervalo $[${lowX}, ${highX}]$.`
+    : `Se calcula el área de la región plana bajo la curva $y = ${fLatex}$ respecto al eje X en el intervalo $[${lowX}, ${highX}]$, donde $dA = f(x)\\,dx$.`;
+
+  const integralLatex = hasG
+    ? `A = \\int_{${lowX}}^{${highX}} \\left( (${topLatex}) - (${botLatex}) \\right) \\, dx`
+    : `A = \\int_{${lowX}}^{${highX}} (${fLatex}) \\, dx`;
+
+  const elementVolumeLatex = hasG
+    ? `dA = [y_{\\text{sup}} - y_{\\text{inf}}] \\, dx = \\left[ (${topLatex}) - (${botLatex}) \\right] \\, dx`
+    : `dA = f(x) \\, dx = (${fLatex}) \\, dx`;
+
+  const rawIntegrandStr = hasG ? `(${topStr}) - (${botStr})` : fStr;
+
+  const terms = analyzeIntegrandTerms(rawIntegrandStr);
+  let integrandLatex = '';
+  let antiderivativeLatex = '';
+  let valB = 0;
+  let valA = 0;
+  let deltaF = 0;
+
+  if (terms && terms.length > 0) {
+    integrandLatex = formatPolynomialLatex(terms);
+    antiderivativeLatex = formatAntiderivativeLatex(terms);
+    valB = evalAntiderivativeAt(terms, highX);
+    valA = evalAntiderivativeAt(terms, lowX);
+    deltaF = valB - valA;
+  } else {
+    const fInt = compileExpression(rawIntegrandStr);
+    integrandLatex = exprToLatex(rawIntegrandStr);
+    antiderivativeLatex = `\\int \\left( ${integrandLatex} \\right) dx`;
+    valB = numericalIntegrate(x => evaluateAt(fInt.compiled, x) ?? 0, 0, highX);
+    valA = numericalIntegrate(x => evaluateAt(fInt.compiled, x) ?? 0, 0, lowX);
+    deltaF = valB - valA;
+  }
+
+  const fracB = toFraction(valB);
+  const fracA = toFraction(valA);
+  const fracDelta = toFraction(deltaF);
+  const decimalFormatted = numRef?.formatted || deltaF.toFixed(4);
+
+  const steps = [
+    {
+      stepNumber: 1,
+      title: 'Verificación de Continuidad e Intervalo de Integración',
+      description: `Se comprueba que la función $f(x) = ${fLatex}$ ${hasG ? `y la función $g(x) = ${gLatex}$` : ''} sean continuas y acotadas en el intervalo cerrado $[${lowX}, ${highX}]$, garantizando la existencia de la integral definida de Riemann.`,
+      mathFormula: `x \\in [${lowX}, ${highX}], \\quad f(x) = ${fLatex}${hasG ? `, \\; g(x) = ${gLatex}` : ''}`
+    },
+    {
+      stepNumber: 2,
+      title: 'Identificación Geométrica de la Altura y Elemento Diferencial de Área',
+      description: hasG
+        ? `Se determinan las fronteras superior $y_{\\text{sup}} = ${topLatex}$ e inferior $y_{\\text{inf}} = ${botLatex}$. La altura del elemento diferencial vertical es $h(x) = y_{\\text{sup}} - y_{\\text{inf}}$ y el elemento diferencial es $dA = h(x)\\,dx$.`
+        : `La altura del elemento diferencial vertical sobre el eje X corresponde al valor de la función: $h(x) = f(x) = ${fLatex}$, con elemento diferencial $dA = f(x)\\,dx$.`,
+      mathFormula: elementVolumeLatex
+    },
+    {
+      stepNumber: 3,
+      title: 'Planteamiento Formal de la Integral Definida de Área',
+      description: `Se formula la integral del área acumulada entre los límites inferior $a = ${lowX}$ y superior $b = ${highX}$:`,
+      mathFormula: integralLatex
+    },
+    {
+      stepNumber: 4,
+      title: 'Expansión Algebraica y Simplificación del Integrando',
+      description: `Se simplifican algebraicamente las expresiones de las funciones para obtener el integrando $I_A(x)$ en potencias sumables:`,
+      mathFormula: `I_A(x) = ${integrandLatex}`
+    },
+    {
+      stepNumber: 5,
+      title: 'Cálculo de la Antiderivada (Función Primitiva F(x))',
+      description: `Se aplica la regla de potencias $\\int x^n \\, dx = \\frac{x^{n+1}}{n+1}$ término a término para obtener la primitiva $F_A(x)$:`,
+      mathFormula: `F_A(x) = \\int \\left( ${integrandLatex} \\right) dx = ${antiderivativeLatex} + C`
+    },
+    {
+      stepNumber: 6,
+      title: 'Evaluación en los Límites (Regla de Barrow / Segundo Teorema Fundamental)',
+      description: `Se evalúa la función primitiva en el límite superior $x = ${highX}$ y en el límite inferior $x = ${lowX}$, restando ambos resultados:`,
+      mathFormula: `\\left[ F_A(x) \\right]_{${lowX}}^{${highX}} = F_A(${highX}) - F_A(${lowX}) = (${fracB.latex}) - (${fracA.latex}) = ${fracDelta.latex}`,
+      secondaryFormula: `F_A(${highX}) = ${fracB.latex}, \\quad F_A(${lowX}) = ${fracA.latex} \\implies A = ${fracDelta.latex} \\text{ u}^2`
+    },
+    {
+      stepNumber: 7,
+      title: 'Resultado Final del Área Plana',
+      description: `El área total calculada para la región plana generatriz corresponde a:`,
+      mathFormula: `A = ${fracDelta.latex} \\text{ u}^2 \\approx ${decimalFormatted} \\text{ u}^2`
+    }
+  ];
+
+  return {
+    isAiGenerated: false,
+    mode: 'area',
+    methodTitle,
+    continuityStatus: `Las funciones son continuas y diferenciables en el intervalo [${lowX}, ${highX}]. El dominio analizado cumple con todas las hipótesis del Teorema Fundamental del Cálculo.`,
+    methodJustification,
+    integralLatex,
+    integrandLatex,
+    antiderivativeLatex,
+    barrowDetails: {
+      upperLimit: highX,
+      lowerLimit: lowX,
+      fUpperStr: fracB.latex,
+      fLowerStr: fracA.latex,
+      deltaFStr: fracDelta.latex,
+      rotationFactor: '1',
+      exactResultLatex: `${fracDelta.latex} \\text{ u}^2`,
+      decimalResult: `${decimalFormatted} u²`
+    },
+    evaluationLatex: `\\left[ F_A(x) \\right]_{${lowX}}^{${highX}} = F_A(${highX}) - F_A(${lowX}) = ${fracDelta.latex}`,
+    exactResult: `${fracDelta.latex} \\text{ u}^2`,
+    decimalResult: `${decimalFormatted} u²`,
+    steps,
+    realWorldInsight: 'El cálculo del área transversal es crucial en ingeniería civil y mecánica para determinar centroides, momentos de inercia y caudales de diseño en canales hidráulicos.'
+  };
+}
+
+/**
  * Generador de resolución matemática analítica y pedagógica paso a paso
  * 100% determinístico y autónomo (sin requerir claves de API externas)
  */
@@ -299,6 +448,14 @@ export function generateDetailedResolution({
 }) {
   const isSolid = mode === 'solid';
   const hasG = gStr && gStr.trim() !== '' && gStr.trim() !== '0';
+
+  // Si el modo es área plana, devolver directamente la resolución completa del área
+  if (!isSolid) {
+    return generateAreaProcedure({ fStr, gStr, a, b, numRef });
+  }
+
+  // Para sólidos de revolución, calculamos también el procedimiento del área generatriz
+  const areaProcedure = generateAreaProcedure({ fStr, gStr, a, b, numRef: null });
 
   const lowX = Math.min(a, b);
   const highX = Math.max(a, b);
@@ -330,34 +487,6 @@ export function generateDetailedResolution({
   let valB = 0;
   let valA = 0;
   let rotationFactorLatex = '\\pi';
-
-  if (!isSolid) {
-    // =========================================================================
-    // MODO: ÁREA BAJO LA CURVA / ENTRE DOS CURVAS
-    // =========================================================================
-    const isFUpper = fMid >= gMid;
-    const topLatex = isFUpper ? fLatex : gLatex;
-    const botLatex = isFUpper ? (hasG ? gLatex : '0') : fLatex;
-    const topStr = isFUpper ? fStr : gStr;
-    const botStr = isFUpper ? (hasG ? gStr : '0') : fStr;
-
-    methodTitle = hasG ? 'Área entre dos Curvas' : 'Área bajo la Curva f(x)';
-    methodJustification = hasG
-      ? `Se calcula el área de la región plana delimitada entre $y = ${topLatex}$ (curva superior) e $y = ${botLatex}$ (curva inferior) en el intervalo $[${lowX}, ${highX}]$.`
-      : `Se calcula el área bajo la curva $y = ${fLatex}$ respecto al eje X en el intervalo $[${lowX}, ${highX}]$.`;
-
-    integralLatex = hasG
-      ? `A = \\int_{${lowX}}^{${highX}} \\left( (${topLatex}) - (${botLatex}) \\right) \\, dx`
-      : `A = \\int_{${lowX}}^{${highX}} (${fLatex}) \\, dx`;
-
-    elementVolumeLatex = hasG
-      ? `dA = [y_{\\text{sup}} - y_{\\text{inf}}] \\, dx = \\left[ (${topLatex}) - (${botLatex}) \\right] \\, dx`
-      : `dA = f(x) \\, dx = (${fLatex}) \\, dx`;
-
-    rawIntegrandStr = hasG ? `(${topStr}) - (${botStr})` : fStr;
-    rotationFactorLatex = '1';
-    realWorldInsight = 'El cálculo del área transversal es crucial en ingeniería civil y mecánica para determinar centroides, momentos de inercia y caudales de diseño en canales hidráulicos.';
-  } else {
     // =========================================================================
     // MODO: SÓLIDOS DE REVOLUCIÓN
     // =========================================================================
@@ -434,7 +563,6 @@ export function generateDetailedResolution({
       rawIntegrandStr = `(${p_raw}) * ${h_raw}`;
       realWorldInsight = 'Se utiliza intensivamente para diseñar tanques de almacenamiento de fluidos, recipientes a presión y cúpulas arquitectónicas.';
     }
-  }
 
   // =========================================================================
   // ANÁLISIS ALGEBRAICO Y SIMBÓLICO DEL INTEGRANDO
@@ -555,6 +683,7 @@ export function generateDetailedResolution({
     exactResult: isSolid ? `${exactVolumeLatex} \\text{ u}^3` : `${fracDelta.latex} \\text{ u}^2`,
     decimalResult: `${numRef.formatted} ${numRef.units}`,
     steps,
+    areaProcedure,
     realWorldInsight
   };
 }
