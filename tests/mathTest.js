@@ -145,6 +145,36 @@ if (mesh3D_v.outer.Z[0][0] >= mesh3D_v.capA.Z[0][0]) {
 }
 
 import { generateDetailedResolution } from '../services/resolutionService.js';
+
+// Verificación de Resolución Paso a Paso en Discos con sqrt(x)
+const expl1 = generateDetailedResolution({
+  fStr: 'sqrt(x)',
+  gStr: '0',
+  a: 0,
+  b: 4,
+  axisType: 'horizontal',
+  axisVal: 0,
+  method: 'discos',
+  mode: 'solid',
+  numRef: res1
+});
+console.log('✅ Resolución Caso 1 (Discos):', {
+  title: expl1.methodTitle,
+  exactResult: expl1.exactResult,
+  stepsCount: expl1.steps.length,
+  step1: expl1.steps[0].mathFormula,
+  step4: expl1.steps[3].mathFormula,
+  step5: expl1.steps[4].mathFormula,
+  step6: expl1.steps[5].mathFormula,
+  step7: expl1.steps[6].mathFormula
+});
+if (expl1.steps.length === 7 && expl1.exactResult.includes('8\\pi') && expl1.steps[0].mathFormula.includes('\\sqrt{x}')) {
+  console.log('✅ Caso 1: Procedimiento completo de 7 pasos con \\sqrt{x} y 8\\pi validado.');
+} else {
+  console.error('❌ Caso 1 falló validación de 7 pasos o símbolo de raíz.');
+}
+
+// Verificación de Resolución Caso 6 (Capas con sqrt(x) y x+1)
 const expl6 = generateDetailedResolution({
   fStr: 'sqrt(x)',
   gStr: 'x+1',
@@ -156,11 +186,18 @@ const expl6 = generateDetailedResolution({
   mode: 'solid',
   numRef: res6
 });
-console.log('✅ Resolución generada con éxito:', {
+console.log('✅ Resolución Caso 6 (Capas):', {
   title: expl6.methodTitle,
   exactResult: expl6.exactResult,
   decimalResult: expl6.decimalResult,
-  step4Formula: expl6.steps[3].mathFormula
+  step4Formula: expl6.steps[3].mathFormula,
+  step6Formula: expl6.steps[5].mathFormula
 });
+if (expl6.steps.length === 7 && expl6.exactResult.includes('496\\pi')) {
+  console.log('✅ Caso 6: Procedimiento de Capas Cilíndricas validado con fracción exacta 496\\pi/15.');
+} else {
+  console.error('❌ Caso 6 falló validación de fracción exacta.');
+}
 
 console.log('--- TODAS LAS PRUEBAS MATEMÁTICAS COMPLETADAS EXITOSAMENTE ---');
+

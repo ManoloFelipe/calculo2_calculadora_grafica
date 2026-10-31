@@ -25,18 +25,35 @@ export default function AITutorChat({ currentContext, onSendMessage, messages, i
     onSendMessage(q);
   };
 
-  // Helper para renderizar texto que contiene notación matemática $...$
+  // Helper para renderizar texto que contiene notación matemática $...$ y markdown básico
   const renderMessageContent = (content) => {
     if (!content) return null;
-    const parts = content.split(/(\$[^$]+\$)/g);
+    const lines = content.split('\n');
     return (
-      <div className="space-y-1">
-        {parts.map((part, i) => {
-          if (part.startsWith('$') && part.endsWith('$')) {
-            const math = part.slice(1, -1);
-            return <KatexMath key={i} math={math} block={false} className="text-cyan-300 font-semibold" />;
-          }
-          return <span key={i}>{part}</span>;
+      <div className="space-y-2">
+        {lines.map((line, lIdx) => {
+          if (!line.trim()) return <div key={lIdx} className="h-1" />;
+          const parts = line.split(/(\$[^$]+\$)/g);
+          return (
+            <p key={lIdx} className="leading-relaxed">
+              {parts.map((part, i) => {
+                if (part.startsWith('$') && part.endsWith('$')) {
+                  const math = part.slice(1, -1);
+                  return <KatexMath key={i} math={math} block={false} className="text-cyan-300 font-semibold" />;
+                }
+                if (part.includes('**')) {
+                  const subParts = part.split(/(\*\*[^*]+\*\*)/g);
+                  return subParts.map((sp, spi) => {
+                    if (sp.startsWith('**') && sp.endsWith('**')) {
+                      return <strong key={`${i}-${spi}`} className="font-semibold text-white">{sp.slice(2, -2)}</strong>;
+                    }
+                    return <span key={`${i}-${spi}`}>{sp}</span>;
+                  });
+                }
+                return <span key={i}>{part}</span>;
+              })}
+            </p>
+          );
         })}
       </div>
     );
@@ -66,7 +83,9 @@ export default function AITutorChat({ currentContext, onSendMessage, messages, i
         {/* Resumen del contexto actual */}
         <div className="hidden md:block text-right text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 font-mono">
           <span className="text-slate-500">Ejercicio activo: </span>
-          <span className="text-cyan-300 font-semibold">f(x) = {currentContext.fStr}</span>
+          <span className="text-cyan-300 font-semibold inline-block">
+            <KatexMath math={`f(x) = ${String(currentContext.fStr || '').replace(/sqrt\s*\(([^)]+)\)/gi, (m, p1) => `\\sqrt{${p1.trim()}}`)}`} block={false} />
+          </span>
           <span className="text-slate-500"> en [{currentContext.a}, {currentContext.b}]</span>
         </div>
       </div>

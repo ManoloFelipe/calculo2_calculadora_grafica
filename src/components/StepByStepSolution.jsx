@@ -2,17 +2,30 @@ import React from 'react';
 import { Sparkles, CheckCircle2, Calculator, Info, Lightbulb, Compass, Award } from 'lucide-react';
 import KatexMath from './KatexMath.jsx';
 
+// Helper para renderizar texto que contiene notación matemática $...$
+const renderMathText = (text) => {
+  if (!text) return null;
+  const parts = String(text).split(/(\$[^$]+\$)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('$') && part.endsWith('$')) {
+      const math = part.slice(1, -1);
+      return <KatexMath key={i} math={math} block={false} className="text-cyan-300 font-semibold" />;
+    }
+    return <span key={i}>{part}</span>;
+  });
+};
+
 export default function StepByStepSolution({ explanation, numRef }) {
   if (!explanation) return null;
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl backdrop-blur-sm space-y-6">
-      {/* Encabezado y Badge de IA */}
+      {/* Encabezado y Badge de Solución */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
-              Solución Pedagógica Paso a Paso
+              Procedimiento Matemático Completo
             </span>
             <span className="inline-flex items-center gap-1 text-[11px] bg-cyan-950/80 text-cyan-300 border border-cyan-700/60 px-2 py-0.5 rounded-full">
               <Calculator className="w-3 h-3 text-cyan-400" /> Solución Analítica Rigurosa
@@ -45,7 +58,7 @@ export default function StepByStepSolution({ explanation, numRef }) {
             <span>Condición de Continuidad</span>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed">
-            {explanation.continuityStatus}
+            {renderMathText(explanation.continuityStatus)}
           </p>
         </div>
 
@@ -55,7 +68,7 @@ export default function StepByStepSolution({ explanation, numRef }) {
             <span>Justificación del Método</span>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed">
-            {explanation.methodJustification}
+            {renderMathText(explanation.methodJustification)}
           </p>
         </div>
       </div>
@@ -71,12 +84,36 @@ export default function StepByStepSolution({ explanation, numRef }) {
         </div>
       </div>
 
-      {/* Desglose de Pasos Numerados */}
+      {/* Tarjeta de Evaluación de Barrow Detallada si existe */}
+      {explanation.barrowDetails && (
+        <div className="bg-gradient-to-br from-cyan-950/40 via-slate-950 to-blue-950/40 border border-cyan-800/50 rounded-xl p-4 shadow-lg space-y-3">
+          <div className="text-xs font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-cyan-400" />
+            <span>Evaluación del Teorema Fundamental del Cálculo (Regla de Barrow)</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+            <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5">
+              <div className="text-[10px] text-slate-400 font-mono mb-1">Límite Superior x = {explanation.barrowDetails.upperLimit}</div>
+              <KatexMath math={`F(${explanation.barrowDetails.upperLimit}) = ${explanation.barrowDetails.fUpperStr}`} block={true} className="text-cyan-200 text-xs font-semibold" />
+            </div>
+            <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5">
+              <div className="text-[10px] text-slate-400 font-mono mb-1">Límite Inferior x = {explanation.barrowDetails.lowerLimit}</div>
+              <KatexMath math={`F(${explanation.barrowDetails.lowerLimit}) = ${explanation.barrowDetails.fLowerStr}`} block={true} className="text-cyan-200 text-xs font-semibold" />
+            </div>
+            <div className="bg-slate-900/80 border border-cyan-900/80 rounded-lg p-2.5">
+              <div className="text-[10px] text-cyan-300 font-mono mb-1">Diferencia Barrow ΔF</div>
+              <KatexMath math={`\\Delta F = ${explanation.barrowDetails.deltaFStr}`} block={true} className="text-cyan-300 text-xs font-bold" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desglose de Pasos Numerados del Procedimiento */}
       {explanation.steps && explanation.steps.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
             <Info className="w-4 h-4 text-cyan-400" />
-            <span>Desarrollo Matemático Detallado</span>
+            <span>Desarrollo Matemático Paso a Paso ({explanation.steps.length} Pasos)</span>
           </h3>
 
           <div className="space-y-3">
@@ -94,11 +131,16 @@ export default function StepByStepSolution({ explanation, numRef }) {
                       {st.title}
                     </h4>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      {st.description}
+                      {renderMathText(st.description)}
                     </p>
                     {st.mathFormula && (
                       <div className="mt-2 py-1.5 px-3 bg-slate-900/80 rounded-lg border border-slate-800 text-center overflow-x-auto">
                         <KatexMath math={st.mathFormula} block={true} className="text-cyan-200 text-sm" />
+                      </div>
+                    )}
+                    {st.secondaryFormula && (
+                      <div className="mt-1.5 py-1 px-3 bg-slate-900/40 rounded-lg border border-slate-800/60 text-center overflow-x-auto">
+                        <KatexMath math={st.secondaryFormula} block={true} className="text-cyan-300 text-xs" />
                       </div>
                     )}
                   </div>
@@ -120,7 +162,7 @@ export default function StepByStepSolution({ explanation, numRef }) {
               Aplicación Práctica en Ingeniería
             </h4>
             <p className="text-xs text-slate-300 leading-relaxed">
-              {explanation.realWorldInsight}
+              {renderMathText(explanation.realWorldInsight)}
             </p>
           </div>
         </div>
